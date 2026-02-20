@@ -160,15 +160,15 @@ func DeleteMember(c *gin.Context) {
 
 	tx := config.DB.Begin()
 
-	if err := tx.Delete(&member.User).Error; err != nil {
+	if err := tx.Where("id = ?", member.ID).Delete(&member).Error; err != nil {
 		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus user", nil)
+		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus member", nil)
 		return
 	}
 
-	if err := tx.Delete(&member).Error; err != nil {
+	if err := tx.Where("id = ?", member.UserID).Delete(&member.User).Error; err != nil {
 		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus member", nil)
+		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus user", nil)
 		return
 	}
 

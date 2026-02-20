@@ -9,11 +9,17 @@ import (
 func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
-	r.GET("/book", controllers.IndexBuku)
-	r.POST("/book", controllers.StoreBuku)
-	r.GET("/book/:id", controllers.ShowBuku)
-	r.PUT("/book/:id", controllers.UpdateBuku)
-	r.DELETE("/book/:id", controllers.DeleteBuku)
+	r.GET("/books", controllers.IndexBooks)
+	r.POST("/books", controllers.StoreBook)
+	r.GET("/books/:id", controllers.ShowBook)
+	r.PUT("/books/:id", controllers.UpdateBook)
+	r.DELETE("/books/:id", controllers.DeleteBook)
+
+	r.GET("/categories", controllers.IndexCategory)
+	r.POST("/categories", controllers.StoreCategory)
+	r.GET("/categories/:id", controllers.ShowCategory)
+	r.PUT("/categories/:id", controllers.UpdateCategory)
+	r.DELETE("/categories/:id", controllers.DeleteCategory)
 
 	r.GET("/members", controllers.IndexMember)
 	r.POST("/members", controllers.StoreMember)
