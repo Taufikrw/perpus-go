@@ -178,7 +178,7 @@ func DeleteMember(c *gin.Context) {
 
 func ApproveMember(c *gin.Context) {
 	var member models.Member
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&member).Error; err != nil {
+	if err := config.DB.Preload("User.Role").Where("id = ?", c.Param("id")).Take(&member).Error; err != nil {
 		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan!", nil)
 		return
 	}
