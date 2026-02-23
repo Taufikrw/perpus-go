@@ -24,6 +24,7 @@ func main() {
 		v.RegisterValidation("unique_email", validators.ValidationUniqueEmail)
 		v.RegisterValidation("unique_username", validators.ValidationUniqueUsername)
 		v.RegisterValidation("unique_member_code", validators.ValidationUniqueMemberCode)
+		v.RegisterValidation("unique_inventory_code", validators.ValidationUniqueInventoryCode)
 	}
 
 	seeders.SeedRoles()

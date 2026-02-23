@@ -100,3 +100,78 @@ func DeleteBook(c *gin.Context) {
 	config.DB.Delete(&buku)
 	utils.SendResponse(c, http.StatusOK, "Buku berhasil dihapus!", nil)
 }
+
+func InsertBookItem(c *gin.Context) {
+	var input dto.CreateBookItemDTO
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		errMsg := utils.FormatError(err)
+		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
+		return
+	}
+	var book models.Book
+	if err := config.DB.Where("id = ?", input.BookID).Take(&book).Error; err != nil {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Buku tidak ditemukan", nil)
+		return
+	}
+
+	newBookItem := models.BookItem{
+		BookID:        book.ID,
+		InventoryCode: input.InventoryCode,
+		Condition:     input.Condition,
+		Status:        "available",
+	}
+
+	config.DB.Create(&newBookItem)
+	config.DB.Preload("Book.Category").Take(&newBookItem, newBookItem.ID)
+	utils.SendResponse(c, http.StatusCreated, "Item buku berhasil ditambahkan!", resources.FormatBookItem(newBookItem))
+}
+
+func UpdateBookItem(c *gin.Context) {
+	var bookItem models.BookItem
+	if err := config.DB.Where("id = ?", c.Param("id")).Take(&bookItem).Error; err != nil {
+		utils.SendErrorResponse(c, http.StatusNotFound, "Item buku tidak ditemukan!", nil)
+		return
+	}
+
+	var input dto.UpdateBookItemDTO
+	if err := c.ShouldBindJSON(&input); err != nil {
+		errMsg := utils.FormatError(err)
+		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
+		return
+	}
+	var book models.Book
+	if err := config.DB.Where("id = ?", input.BookID).Take(&book).Error; err != nil {
+		utils.SendErrorResponse(c, http.StatusBadRequest, "Buku tidak ditemukan", nil)
+		return
+	}
+
+	bookItem.BookID = book.ID
+	bookItem.InventoryCode = input.InventoryCode
+	bookItem.Condition = input.Condition
+
+	config.DB.Updates(&bookItem)
+	config.DB.Preload("Book.Category").Take(&bookItem, bookItem.ID)
+	utils.SendResponse(c, http.StatusOK, "Item buku berhasil diupdate!", resources.FormatBookItem(bookItem))
+}
+
+func RemoveBookItem(c *gin.Context) {
+	var bookItem models.BookItem
+	if err := config.DB.Where("id = ?", c.Param("id")).Take(&bookItem).Error; err != nil {
+		utils.SendErrorResponse(c, http.StatusNotFound, "Item buku tidak ditemukan!", nil)
+		return
+	}
+
+	config.DB.Delete(&bookItem)
+	utils.SendResponse(c, http.StatusOK, "Item buku berhasil dihapus!", nil)
+}
+
+func ShowBookItems(c *gin.Context) {
+	var bookItems []models.BookItem
+	if err := config.DB.Where("book_id = ?", c.Param("id")).Preload("Book.Category").Find(&bookItems).Error; err != nil {
+		utils.SendErrorResponse(c, http.StatusNotFound, "Item buku tidak ditemukan!", nil)
+		return
+	}
+
+	utils.SendResponse(c, http.StatusOK, "Daftar item buku berhasil diambil!", resources.FormatBookItems(bookItems))
+}

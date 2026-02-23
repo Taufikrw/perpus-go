@@ -33,3 +33,12 @@ func ValidationUniqueMemberCode(fl validator.FieldLevel) bool {
 
 	return count == 0
 }
+
+func ValidationUniqueInventoryCode(fl validator.FieldLevel) bool {
+	inventoryCode := fl.Field().String()
+	var count int64
+
+	config.DB.Model(&models.BookItem{}).Where("inventory_code = ?", inventoryCode).Count(&count)
+
+	return count == 0
+}

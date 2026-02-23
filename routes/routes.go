@@ -15,6 +15,11 @@ func SetupRouter() *gin.Engine {
 	r.PUT("/books/:id", controllers.UpdateBook)
 	r.DELETE("/books/:id", controllers.DeleteBook)
 
+	r.GET("/books/:id/item", controllers.ShowBookItems)
+	r.POST("/books/item", controllers.InsertBookItem)
+	r.PUT("/books/item/:id", controllers.UpdateBookItem)
+	r.DELETE("/books/item/:id", controllers.RemoveBookItem)
+
 	r.GET("/categories", controllers.IndexCategory)
 	r.POST("/categories", controllers.StoreCategory)
 	r.GET("/categories/:id", controllers.ShowCategory)
