@@ -27,7 +27,7 @@ func main() {
 		v.RegisterValidation("unique_inventory_code", validators.ValidationUniqueInventoryCode)
 	}
 
-	seeders.SeedRoles()
+	seeders.SeedDatabase()
 	r := routes.SetupRouter()
 
 	r.Run(":8000")
