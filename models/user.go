@@ -10,6 +10,5 @@ type User struct {
 	RoleID   uuid.UUID
 
 	Role   Role    `gorm:"foreignKey:RoleID;references:ID"`
-	Loans  []Loan  `gorm:"foreignKey:UserID;references:ID"`
 	Member *Member `gorm:"foreignKey:UserID;references:ID"`
 }

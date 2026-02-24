@@ -10,5 +10,6 @@ type Member struct {
 	IsApproved  bool `gorm:"default:false"`
 	UserID      uuid.UUID
 
-	User User `gorm:"foreignKey:UserID;references:ID"`
+	User  User   `gorm:"foreignKey:UserID;references:ID"`
+	Loans []Loan `gorm:"foreignKey:MemberID;references:ID"`
 }

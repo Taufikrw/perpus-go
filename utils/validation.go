@@ -28,6 +28,8 @@ func FormatError(err error) []string {
 				errors = append(errors, fmt.Sprintf("%s is invalid (%s)", e.Field(), e.Tag()))
 			}
 		}
+		return errors
 	}
-	return errors
+
+	return []string{err.Error()}
 }
