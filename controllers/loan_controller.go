@@ -20,6 +20,7 @@ func IndexLoans(c *gin.Context) {
 
 func StoreLoan(c *gin.Context) {
 	var input dto.CreateLoanDTO
+	userID, _ := c.Get("user_id")
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
@@ -28,7 +29,7 @@ func StoreLoan(c *gin.Context) {
 	}
 
 	var member models.Member
-	if err := config.DB.Where("id = ?", input.MemberID).Take(&member).Error; err != nil {
+	if err := config.DB.Where("user_id = ?", userID).Take(&member).Error; err != nil {
 		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan", nil)
 		return
 	}
@@ -195,22 +196,11 @@ func DeleteLoan(c *gin.Context) {
 	}
 
 	tx := config.DB.Begin()
-
-	if err := tx.Where("id = ?", loan.ID).Delete(&loan).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus peminjaman", nil)
-		return
+	var fine models.Fine
+	if err := tx.Where("loan_id = ?", loan.ID).Take(&fine).Error; err == nil {
+		tx.Delete(&fine)
 	}
-
-	var bookItem models.BookItem
-	config.DB.Where("id = ?", loan.BookItemID).Take(&bookItem)
-	bookItem.Status = "available"
-	if err := tx.Save(&bookItem).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui status book item", nil)
-		return
-	}
-
+	tx.Delete(&loan)
 	tx.Commit()
 	utils.SendResponse(c, http.StatusOK, "Peminjaman berhasil dihapus!", nil)
 }
@@ -230,5 +220,12 @@ func PayFine(c *gin.Context) {
 		return
 	}
 
-	utils.SendResponse(c, http.StatusOK, "Denda berhasil dibayar!", nil)
+	config.DB.Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Take(&fine, fine.ID)
+	utils.SendResponse(c, http.StatusOK, "Denda berhasil dibayar!", resources.FormatFine(fine))
+}
+
+func IndexFines(c *gin.Context) {
+	var fines []models.Fine
+	config.DB.Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Find(&fines)
+	utils.SendResponse(c, http.StatusOK, "Daftar denda berhasil diambil!", resources.FormatFines(fines))
 }
