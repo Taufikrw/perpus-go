@@ -1,14 +1,23 @@
 package middleware
 
 import (
-	"belajar-go/config"
 	"belajar-go/models"
 	"belajar-go/utils"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func RequireRole(allowedRoles ...string) gin.HandlerFunc {
+type AppMiddleware struct {
+	db *gorm.DB
+}
+
+// NewAppMiddleware adalah constructor untuk inisialisasi
+func NewAppMiddleware(db *gorm.DB) *AppMiddleware {
+	return &AppMiddleware{db: db}
+}
+
+func (m *AppMiddleware) RequireRole(allowedRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -17,7 +26,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 		}
 
 		var user models.User
-		if err := config.DB.Preload("Role").Where("id = ?", userID).Take(&user).Error; err != nil {
+		if err := m.db.Preload("Role").Where("id = ?", userID).Take(&user).Error; err != nil {
 			utils.SendErrorResponse(c, 401, "Unauthorized", "User not found")
 			return
 		}

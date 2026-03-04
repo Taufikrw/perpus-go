@@ -1,17 +1,18 @@
 package seeders
 
 import (
-	"belajar-go/config"
 	"belajar-go/models"
 	"log"
+
+	"gorm.io/gorm"
 )
 
-func SeedRoles() {
+func SeedRoles(db *gorm.DB) {
 	roles := []string{"admin", "member", "librarian"}
 
 	for _, roleName := range roles {
 		var role models.Role
-		err := config.DB.FirstOrCreate(&role, models.Role{Name: roleName}).Error
+		err := db.FirstOrCreate(&role, models.Role{Name: roleName}).Error
 		if err != nil {
 			panic("Gagal melakukan seeding role: " + err.Error())
 		}

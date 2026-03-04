@@ -18,17 +18,18 @@ func main() {
 		log.Println("Peringatan: File .env tidak ditemukan, menggunakan environment OS bawaan")
 	}
 
-	config.ConnectDatabase()
+	db := config.ConnectDatabase()
 
+	appValidator := validators.NewAppValidator(db)
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("unique_email", validators.ValidationUniqueEmail)
-		v.RegisterValidation("unique_username", validators.ValidationUniqueUsername)
-		v.RegisterValidation("unique_member_code", validators.ValidationUniqueMemberCode)
-		v.RegisterValidation("unique_inventory_code", validators.ValidationUniqueInventoryCode)
+		v.RegisterValidation("unique_email", appValidator.ValidationUniqueEmail)
+		v.RegisterValidation("unique_username", appValidator.ValidationUniqueUsername)
+		v.RegisterValidation("unique_member_code", appValidator.ValidationUniqueMemberCode)
+		v.RegisterValidation("unique_inventory_code", appValidator.ValidationUniqueInventoryCode)
 	}
 
-	seeders.SeedDatabase()
-	r := routes.SetupRouter()
+	seeders.SeedDatabase(db)
+	r := routes.SetupRouter(db)
 
 	r.Run(":8000")
 }

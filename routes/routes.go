@@ -3,63 +3,91 @@ package routes
 import (
 	"belajar-go/controllers"
 	"belajar-go/middleware"
+	"belajar-go/repository"
+	"belajar-go/services"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
-func SetupRouter() *gin.Engine {
+func SetupRouter(db *gorm.DB) *gin.Engine {
+	txManager := repository.NewTransactionManager(db)
+	categoryRepo := repository.NewCategoryRepository(db)
+	categoryService := services.NewCategoryService(categoryRepo)
+	categoryCtrl := controllers.NewCategoryController(categoryService)
+
+	authRepo := repository.NewAuthRepository(db)
+	authService := services.NewAuthService(authRepo)
+	authCtrl := controllers.NewAuthController(authService)
+
+	bookItemRepo := repository.NewBookItemRepository(db)
+	bookRepo := repository.NewBookRepository(db)
+	bookService := services.NewBookService(bookRepo, categoryRepo, bookItemRepo)
+	bookCtrl := controllers.NewBookController(bookService)
+
+	userRepo := repository.NewUserRepository(db)
+	memberRepo := repository.NewMemberRepository(db)
+	memberService := services.NewMemberService(txManager, memberRepo, userRepo)
+	memberCtrl := controllers.NewMemberController(memberService)
+
+	fineRepo := repository.NewFineRepository(db)
+	loanRepo := repository.NewLoanRepository(db)
+	loanService := services.NewLoanService(txManager, loanRepo, memberRepo, bookItemRepo, fineRepo)
+	loanCtrl := controllers.NewLoanController(loanService)
+
 	r := gin.Default()
+	authMid := middleware.NewAppMiddleware(db)
 	api := r.Group("/api")
 
-	api.POST("/sign-in", controllers.Login)
-	api.POST("/sign-up", controllers.Register)
+	api.POST("/sign-in", authCtrl.Login)
+	api.POST("/sign-up", authCtrl.Register)
 
 	api.Use(middleware.RequireAuth())
 	{
-		api.GET("/books", controllers.IndexBooks)
-		api.GET("/books/:id", controllers.ShowBook)
-		api.GET("/books/:id/item", controllers.ShowBookItems)
-		api.GET("/loans/:id", middleware.RequireLoanAccess(), controllers.ShowLoan)
+		api.GET("/books", bookCtrl.IndexBooks)
+		api.GET("/books/:id", bookCtrl.ShowBook)
+		api.GET("/books/:id/item", bookCtrl.ShowBookItems)
+		api.GET("/loans/:id", authMid.RequireLoanAccess(), loanCtrl.ShowLoan)
+		api.GET("/categories", categoryCtrl.IndexCategory)
 
 		admin := api.Group("/")
-		admin.Use(middleware.RequireRole("admin"))
+		admin.Use(authMid.RequireRole("admin"))
 		{
-			admin.GET("/categories", controllers.IndexCategory)
-			admin.POST("/categories", controllers.StoreCategory)
-			admin.GET("/categories/:id", controllers.ShowCategory)
-			admin.PUT("/categories/:id", controllers.UpdateCategory)
-			admin.DELETE("/categories/:id", controllers.DeleteCategory)
+			admin.POST("/categories", categoryCtrl.StoreCategory)
+			admin.GET("/categories/:id", categoryCtrl.ShowCategory)
+			admin.PUT("/categories/:id", categoryCtrl.UpdateCategory)
+			admin.DELETE("/categories/:id", categoryCtrl.DeleteCategory)
 
-			admin.GET("/members", controllers.IndexMember)
-			admin.POST("/members", controllers.StoreMember)
-			admin.GET("/members/:id", controllers.ShowMember)
-			admin.PUT("/members/:id", controllers.UpdateMember)
-			admin.DELETE("/members/:id", controllers.DeleteMember)
+			admin.GET("/members", memberCtrl.IndexMember)
+			admin.POST("/members", memberCtrl.StoreMember)
+			admin.GET("/members/:id", memberCtrl.ShowMember)
+			admin.PUT("/members/:id", memberCtrl.UpdateMember)
+			admin.DELETE("/members/:id", memberCtrl.DeleteMember)
 		}
 
 		adminOrLibrarian := api.Group("/")
-		adminOrLibrarian.Use(middleware.RequireRole("admin", "librarian"))
+		adminOrLibrarian.Use(authMid.RequireRole("admin", "librarian"))
 		{
-			adminOrLibrarian.POST("/books", controllers.StoreBook)
-			adminOrLibrarian.PUT("/books/:id", controllers.UpdateBook)
-			adminOrLibrarian.DELETE("/books/:id", controllers.DeleteBook)
-			adminOrLibrarian.POST("/books/item", controllers.InsertBookItem)
-			adminOrLibrarian.PUT("/books/item/:id", controllers.UpdateBookItem)
-			adminOrLibrarian.DELETE("/books/item/:id", controllers.RemoveBookItem)
+			adminOrLibrarian.POST("/books", bookCtrl.StoreBook)
+			adminOrLibrarian.PUT("/books/:id", bookCtrl.UpdateBook)
+			adminOrLibrarian.DELETE("/books/:id", bookCtrl.DeleteBook)
+			adminOrLibrarian.POST("/books/item", bookCtrl.InsertBookItem)
+			adminOrLibrarian.PUT("/books/item/:id", bookCtrl.UpdateBookItem)
+			adminOrLibrarian.DELETE("/books/item/:id", bookCtrl.RemoveBookItem)
 
-			adminOrLibrarian.GET("/loans", controllers.IndexLoans)
-			adminOrLibrarian.PUT("/loans/:id", controllers.UpdateLoan)
-			adminOrLibrarian.PUT("/loans/:id/return", controllers.ReturnLoan)
-			adminOrLibrarian.DELETE("/loans/:id", controllers.DeleteLoan)
-			adminOrLibrarian.GET("/fines", controllers.IndexFines)
-			adminOrLibrarian.PUT("/loans/:id/pay-fine", controllers.PayFine)
-			adminOrLibrarian.PUT("/approve/:id", controllers.ApproveMember)
+			adminOrLibrarian.GET("/loans", loanCtrl.IndexLoans)
+			adminOrLibrarian.PUT("/loans/:id", loanCtrl.UpdateLoan)
+			adminOrLibrarian.PUT("/loans/:id/return", loanCtrl.ReturnLoan)
+			adminOrLibrarian.DELETE("/loans/:id", loanCtrl.DeleteLoan)
+			adminOrLibrarian.GET("/fines", loanCtrl.IndexFines)
+			adminOrLibrarian.PUT("/loans/:id/pay-fine", loanCtrl.PayFine)
+			adminOrLibrarian.PUT("/approve/:id", memberCtrl.ApproveMember)
 		}
 
 		member := api.Group("/")
-		member.Use(middleware.RequireRole("member"))
+		member.Use(authMid.RequireRole("member"))
 		{
-			member.POST("/loans", controllers.StoreLoan)
+			member.POST("/loans", loanCtrl.StoreLoan)
 		}
 	}
 	return r

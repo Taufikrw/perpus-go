@@ -1,193 +1,94 @@
 package controllers
 
 import (
-	"belajar-go/config"
 	"belajar-go/dto"
-	"belajar-go/models"
 	"belajar-go/resources"
+	"belajar-go/services"
 	"belajar-go/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func IndexMember(c *gin.Context) {
-	var members []models.Member
-	config.DB.Preload("User.Role").Find(&members)
-	utils.SendResponse(c, http.StatusOK, "Daftar member berhasil diambil!", resources.FormatMembers(members))
+type MemberController struct {
+	svc *services.MemberService
 }
 
-func StoreMember(c *gin.Context) {
+func NewMemberController(svc *services.MemberService) *MemberController {
+	return &MemberController{svc: svc}
+}
+
+func (ctrl *MemberController) IndexMember(c *gin.Context) {
+	members, err := ctrl.svc.GetAllMembers(c.Request.Context())
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Members retrieved successfully!", resources.FormatMembers(members))
+}
+
+func (ctrl *MemberController) StoreMember(c *gin.Context) {
 	var input dto.CreateMemberDTO
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
-		return
-	}
-	var roleMember models.Role
-	if err := config.DB.Where("name = ?", "member").Take(&roleMember).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menemukan role member", nil)
+		utils.HandleError(c, utils.NewValidationError("Invalid Input", errMsg))
 		return
 	}
 
-	tx := config.DB.Begin()
-	hashPassword, err := utils.HashPassword(input.Password)
+	newMember, err := ctrl.svc.CreateMember(c.Request.Context(), input)
 	if err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal meng-hash password", nil)
+		utils.HandleError(c, err)
 		return
 	}
-
-	newUser := models.User{
-		Username: input.Username,
-		Email:    input.Email,
-		Password: hashPassword,
-		RoleID:   roleMember.ID,
-	}
-	if err := tx.Create(&newUser).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan user", nil)
-		return
-	}
-
-	newMember := models.Member{
-		MemberCode:  input.MemberCode,
-		PhoneNumber: input.PhoneNumber,
-		Address:     input.Address,
-		IsApproved:  input.IsApproved,
-		User:        newUser,
-	}
-	if err := tx.Create(&newMember).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan member", nil)
-		return
-	}
-
-	tx.Commit()
-	config.DB.Preload("User.Role").Take(&newMember, newMember.ID)
-
-	utils.SendResponse(c, http.StatusCreated, "Member berhasil dibuat!", resources.FormatMember(newMember))
+	utils.SendResponse(c, http.StatusCreated, "Member created successfully!", resources.FormatMember(*newMember))
 }
 
-func ShowMember(c *gin.Context) {
-	var member models.Member
-
-	if err := config.DB.Where("id = ?", c.Param("id")).Preload("User.Role").Take(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan!", nil)
+func (ctrl *MemberController) ShowMember(c *gin.Context) {
+	member, err := ctrl.svc.GetMemberByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-	utils.SendResponse(c, http.StatusOK, "Member berhasil diambil!", resources.FormatMember(member))
+	utils.SendResponse(c, http.StatusOK, "Member retrieved successfully!", resources.FormatMember(*member))
 }
 
-func UpdateMember(c *gin.Context) {
-	var member models.Member
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan!", nil)
+func (ctrl *MemberController) UpdateMember(c *gin.Context) {
+	member, err := ctrl.svc.GetMemberByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
 
 	var input dto.UpdateMemberDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
+		utils.HandleError(c, utils.NewValidationError("Invalid Input", errMsg))
 		return
 	}
 
-	if err := config.DB.Where("member_code = ? AND id != ?", input.MemberCode, member.ID).Take(&models.Member{}); err == nil {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", gin.H{"member_code": "Member code ini sudah digunakan oleh member lain"})
-		return
-	}
-	var userCheck models.User
-	if err := config.DB.Where("email = ? AND id != ?", input.Email, member.UserID).Take(&userCheck); err == nil {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", gin.H{"email": "Email ini sudah digunakan oleh user lain"})
-		return
-	}
-	if err := config.DB.Where("username = ? AND id != ?", input.Username, member.UserID).Take(&userCheck); err == nil {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", gin.H{"username": "Username ini sudah digunakan oleh user lain"})
-		return
-	}
-
-	tx := config.DB.Begin()
-
-	hashPassword, err := utils.HashPassword(input.Password)
+	updatedMember, err := ctrl.svc.UpdateMember(c.Request.Context(), member.ID.String(), input)
 	if err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal meng-hash password", nil)
+		utils.HandleError(c, err)
 		return
 	}
-
-	var roleMember models.Role
-	if err := config.DB.Where("name = ?", "member").Take(&roleMember).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menemukan role member", nil)
-		return
-	}
-
-	newUser := models.User{
-		Username: input.Username,
-		Email:    input.Email,
-		Password: hashPassword,
-		RoleID:   roleMember.ID,
-	}
-	if err := tx.Model(&models.User{}).Where("id = ?", member.UserID).Updates(&newUser).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal mengupdate user", nil)
-		return
-	}
-
-	newMember := models.Member{
-		MemberCode:  input.MemberCode,
-		PhoneNumber: input.PhoneNumber,
-		Address:     input.Address,
-		IsApproved:  input.IsApproved,
-	}
-	if err := tx.Model(&member).Updates(&newMember).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal mengupdate member", nil)
-		return
-	}
-
-	tx.Commit()
-	config.DB.Preload("User.Role").Take(&member, member.ID)
-
-	utils.SendResponse(c, http.StatusOK, "Member berhasil diupdate!", resources.FormatMember(member))
+	utils.SendResponse(c, http.StatusOK, "Member updated successfully!", resources.FormatMember(*updatedMember))
 }
 
-func DeleteMember(c *gin.Context) {
-	var member models.Member
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan!", nil)
+func (ctrl *MemberController) DeleteMember(c *gin.Context) {
+	err := ctrl.svc.DeleteMember(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-
-	tx := config.DB.Begin()
-
-	if err := tx.Where("id = ?", member.ID).Delete(&member).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus member", nil)
-		return
-	}
-
-	if err := tx.Where("id = ?", member.UserID).Delete(&member.User).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menghapus user", nil)
-		return
-	}
-
-	tx.Commit()
-	utils.SendResponse(c, http.StatusOK, "Member berhasil dihapus!", nil)
+	utils.SendResponse(c, http.StatusOK, "Member deleted successfully!", nil)
 }
 
-func ApproveMember(c *gin.Context) {
-	var member models.Member
-	if err := config.DB.Preload("User.Role").Where("id = ?", c.Param("id")).Take(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan!", nil)
+func (ctrl *MemberController) ApproveMember(c *gin.Context) {
+	member, err := ctrl.svc.ApproveMember(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-
-	member.IsApproved = true
-	if err := config.DB.Save(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal mengupdate status approval member", nil)
-		return
-	}
-
-	utils.SendResponse(c, http.StatusOK, "Member berhasil disetujui!", resources.FormatMember(member))
+	utils.SendResponse(c, http.StatusOK, "Member approved successfully!", resources.FormatMember(*member))
 }

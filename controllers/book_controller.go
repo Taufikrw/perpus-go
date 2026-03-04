@@ -1,177 +1,138 @@
 package controllers
 
 import (
-	"belajar-go/config"
 	"belajar-go/dto"
-	"belajar-go/models"
 	"belajar-go/resources"
+	"belajar-go/services"
 	"belajar-go/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func IndexBooks(c *gin.Context) {
-	var books []models.Book
-	config.DB.Preload("Category").Find(&books)
-	utils.SendResponse(c, http.StatusOK, "Daftar buku berhasil diambil!", resources.FormatBooks(books))
+type BookController struct {
+	svc *services.BookService
 }
 
-func StoreBook(c *gin.Context) {
+func NewBookController(svc *services.BookService) *BookController {
+	return &BookController{svc: svc}
+}
+
+func (ctrl *BookController) IndexBooks(c *gin.Context) {
+	books, err := ctrl.svc.GetAllBooks(c.Request.Context())
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Books retrieved successfully", resources.FormatBooks(books))
+}
+
+func (ctrl *BookController) StoreBook(c *gin.Context) {
 	var input dto.CreateBookDTO
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
-		return
-	}
-	var category models.BookCategory
-	if err := config.DB.Where("id = ?", input.CategoryID).Take(&category).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusBadRequest, "Kategori tidak ditemukan", nil)
+		utils.HandleError(c, utils.NewValidationError("Invalid Input", errMsg))
 		return
 	}
 
-	newBook := models.Book{
-		Title:      input.Title,
-		Author:     input.Author,
-		Year:       input.Year,
-		Publisher:  input.Publisher,
-		Isbn:       input.Isbn,
-		Synopsis:   input.Synopsis,
-		CategoryID: category.ID,
+	newBook, err := ctrl.svc.CreateBook(c.Request.Context(), input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
 	}
-
-	config.DB.Create(&newBook)
-	config.DB.Preload("Category").Take(&newBook, newBook.ID)
-	utils.SendResponse(c, http.StatusCreated, "Buku berhasil dibuat!", resources.FormatBook(newBook))
+	utils.SendResponse(c, http.StatusCreated, "Book created successfully!", resources.FormatBook(*newBook))
 }
 
-func ShowBook(c *gin.Context) {
-	var buku models.Book
-
-	if err := config.DB.Where("id = ?", c.Param("id")).Preload("Category").Take(&buku).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Buku tidak ditemukan!", nil)
+func (ctrl *BookController) ShowBook(c *gin.Context) {
+	book, err := ctrl.svc.GetBookByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-	utils.SendResponse(c, http.StatusOK, "Detail buku berhasil diambil!", resources.FormatBook(buku))
+	utils.SendResponse(c, http.StatusOK, "Book detail retrieved successfully!", resources.FormatBook(*book))
 }
 
-func UpdateBook(c *gin.Context) {
-	var buku models.Book
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&buku).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Buku tidak ditemukan!", nil)
-		return
-	}
-
+func (ctrl *BookController) UpdateBook(c *gin.Context) {
 	var input dto.CreateBookDTO
+
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
-		return
-	}
-	var category models.BookCategory
-	if err := config.DB.Where("id = ?", input.CategoryID).Take(&category).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusBadRequest, "Kategori tidak ditemukan", nil)
+		utils.HandleError(c, utils.NewValidationError("Invalid Input", errMsg))
 		return
 	}
 
-	newBook := models.Book{
-		Title:      input.Title,
-		Author:     input.Author,
-		Year:       input.Year,
-		Publisher:  input.Publisher,
-		Isbn:       input.Isbn,
-		Synopsis:   input.Synopsis,
-		CategoryID: category.ID,
+	updatedBook, err := ctrl.svc.UpdateBook(c.Request.Context(), c.Param("id"), input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
 	}
-
-	config.DB.Model(&buku).Updates(&newBook)
-	config.DB.Preload("Category").Take(&newBook, buku.ID)
-	utils.SendResponse(c, http.StatusOK, "Buku berhasil diupdate!", resources.FormatBook(newBook))
+	utils.SendResponse(c, http.StatusOK, "Book updated successfully!", resources.FormatBook(*updatedBook))
 }
 
-func DeleteBook(c *gin.Context) {
-	var buku models.Book
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&buku).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Buku tidak ditemukan!", nil)
+func (ctrl *BookController) DeleteBook(c *gin.Context) {
+	err := ctrl.svc.DeleteBook(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-
-	config.DB.Delete(&buku)
-	utils.SendResponse(c, http.StatusOK, "Buku berhasil dihapus!", nil)
+	utils.SendResponse(c, http.StatusOK, "Book deleted successfully!", nil)
 }
 
-func InsertBookItem(c *gin.Context) {
+func (ctrl *BookController) InsertBookItem(c *gin.Context) {
 	var input dto.CreateBookItemDTO
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
-		return
-	}
-	var book models.Book
-	if err := config.DB.Where("id = ?", input.BookID).Take(&book).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusBadRequest, "Buku tidak ditemukan", nil)
+		utils.HandleError(c, utils.NewValidationError("Invalid Input", errMsg))
 		return
 	}
 
-	newBookItem := models.BookItem{
-		BookID:        book.ID,
-		InventoryCode: input.InventoryCode,
-		Condition:     input.Condition,
-		Status:        "available",
+	book, err := ctrl.svc.GetBookByID(c.Request.Context(), input.BookID)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
 	}
 
-	config.DB.Create(&newBookItem)
-	config.DB.Preload("Book.Category").Take(&newBookItem, newBookItem.ID)
-	utils.SendResponse(c, http.StatusCreated, "Item buku berhasil ditambahkan!", resources.FormatBookItem(newBookItem))
+	newBookItem, err := ctrl.svc.CreateBookItem(c.Request.Context(), book.ID.String(), input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusCreated, "Book item created successfully!", resources.FormatBookItem(*newBookItem))
 }
 
-func UpdateBookItem(c *gin.Context) {
-	var bookItem models.BookItem
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&bookItem).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Item buku tidak ditemukan!", nil)
-		return
-	}
-
+func (ctrl *BookController) UpdateBookItem(c *gin.Context) {
 	var input dto.UpdateBookItemDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
-		return
-	}
-	var book models.Book
-	if err := config.DB.Where("id = ?", input.BookID).Take(&book).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusBadRequest, "Buku tidak ditemukan", nil)
+		utils.HandleError(c, utils.NewValidationError("Invalid Input", errMsg))
 		return
 	}
 
-	bookItem.BookID = book.ID
-	bookItem.InventoryCode = input.InventoryCode
-	bookItem.Condition = input.Condition
-
-	config.DB.Updates(&bookItem)
-	config.DB.Preload("Book.Category").Take(&bookItem, bookItem.ID)
-	utils.SendResponse(c, http.StatusOK, "Item buku berhasil diupdate!", resources.FormatBookItem(bookItem))
+	updatedBookItem, err := ctrl.svc.UpdateBookItem(c.Request.Context(), c.Param("id"), input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Book item updated successfully!", resources.FormatBookItem(*updatedBookItem))
 }
 
-func RemoveBookItem(c *gin.Context) {
-	var bookItem models.BookItem
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&bookItem).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Item buku tidak ditemukan!", nil)
+func (ctrl *BookController) RemoveBookItem(c *gin.Context) {
+	err := ctrl.svc.DeleteBookItem(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-
-	config.DB.Delete(&bookItem)
-	utils.SendResponse(c, http.StatusOK, "Item buku berhasil dihapus!", nil)
+	utils.SendResponse(c, http.StatusOK, "Book item deleted successfully!", nil)
 }
 
-func ShowBookItems(c *gin.Context) {
-	var bookItems []models.BookItem
-	if err := config.DB.Where("book_id = ?", c.Param("id")).Preload("Book.Category").Find(&bookItems).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Item buku tidak ditemukan!", nil)
+func (ctrl *BookController) ShowBookItems(c *gin.Context) {
+	bookItems, err := ctrl.svc.GetBookItemsByBookID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
 
-	utils.SendResponse(c, http.StatusOK, "Daftar item buku berhasil diambil!", resources.FormatBookItems(bookItems))
+	utils.SendResponse(c, http.StatusOK, "Book items retrieved successfully!", resources.FormatBookItems(bookItems))
 }

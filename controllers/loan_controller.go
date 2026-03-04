@@ -1,231 +1,111 @@
 package controllers
 
 import (
-	"belajar-go/config"
 	"belajar-go/dto"
-	"belajar-go/models"
 	"belajar-go/resources"
+	"belajar-go/services"
 	"belajar-go/utils"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-func IndexLoans(c *gin.Context) {
-	var loans []models.Loan
-	config.DB.Preload("Member.User.Role").Preload("BookItem.Book.Category").Find(&loans)
+type LoanController struct {
+	service *services.LoanService
+}
+
+func NewLoanController(service *services.LoanService) *LoanController {
+	return &LoanController{service: service}
+}
+
+func (ctrl *LoanController) IndexLoans(c *gin.Context) {
+	loans, err := ctrl.service.GetAllLoans(c.Request.Context())
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
 	utils.SendResponse(c, http.StatusOK, "Daftar peminjaman berhasil diambil!", resources.FormatLoans(loans))
 }
 
-func StoreLoan(c *gin.Context) {
+func (ctrl *LoanController) StoreLoan(c *gin.Context) {
 	var input dto.CreateLoanDTO
 	userID, _ := c.Get("user_id")
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
+		utils.HandleError(c, utils.NewValidationError("Invalid input", errMsg))
 		return
 	}
 
-	var member models.Member
-	if err := config.DB.Where("user_id = ?", userID).Take(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan", nil)
+	newLoan, err := ctrl.service.CreateLoan(c.Request.Context(), input, userID.(string))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-	var bookItem models.BookItem
-	if err := config.DB.Where("id = ?", input.BookItemID).Take(&bookItem).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Book item tidak ditemukan", nil)
-		return
-	}
-	if bookItem.Status != "available" {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Book item tidak tersedia untuk dipinjam", nil)
-		return
-	}
-
-	tx := config.DB.Begin()
-	bookItem.Status = "loaned"
-	if err := tx.Save(&bookItem).Error; err != nil {
-		tx.Rollback()
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui status book item", nil)
-		return
-	}
-
-	loanDate, _ := time.Parse("2006-01-02", input.LoanDate)
-	dueDate, _ := time.Parse("2006-01-02", input.DueDate)
-
-	if !dueDate.After(loanDate) {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Validasi Gagal", []string{
-			"Tanggal kembali (due date) harus lebih besar dari tanggal peminjaman (loan date)",
-		})
-		return
-	}
-
-	newLoan := models.Loan{
-		MemberID:   member.ID,
-		BookItemID: bookItem.ID,
-		LoanDate:   loanDate,
-		DueDate:    dueDate,
-		Status:     "ongoing",
-	}
-	if err := config.DB.Create(&newLoan).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal menyimpan data peminjaman", nil)
-		return
-	}
-	tx.Commit()
-
-	config.DB.Preload("Member.User.Role").Preload("BookItem.Book.Category").Take(&newLoan, newLoan.ID)
-	utils.SendResponse(c, http.StatusCreated, "Peminjaman berhasil dibuat", resources.FormatLoan(newLoan))
+	utils.SendResponse(c, http.StatusCreated, "Loan created successfully!", resources.FormatLoan(*newLoan))
 }
 
-func ShowLoan(c *gin.Context) {
-	var loan models.Loan
-
-	if err := config.DB.Where("id = ?", c.Param("id")).Preload("Member.User.Role").Preload("BookItem.Book.Category").Take(&loan).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Peminjaman tidak ditemukan!", nil)
+func (ctrl *LoanController) ShowLoan(c *gin.Context) {
+	loan, err := ctrl.service.GetLoanByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-	utils.SendResponse(c, http.StatusOK, "Peminjaman berhasil diambil!", resources.FormatLoan(loan))
+	utils.SendResponse(c, http.StatusOK, "Loan detail retrieved successfully!", resources.FormatLoan(*loan))
 }
 
-func UpdateLoan(c *gin.Context) {
-	var loan models.Loan
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&loan).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Peminjaman tidak ditemukan!", nil)
-		return
-	}
-
+func (ctrl *LoanController) UpdateLoan(c *gin.Context) {
 	var input dto.UpdateLoanDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Input tidak valid", errMsg)
+		utils.HandleError(c, utils.NewValidationError("Invalid input", errMsg))
 		return
 	}
 
-	var member models.Member
-	if err := config.DB.Where("id = ?", input.MemberID).Take(&member).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Member tidak ditemukan", nil)
+	updatedLoan, err := ctrl.service.UpdateLoan(c.Request.Context(), c.Param("id"), input)
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-	var bookItem models.BookItem
-	if err := config.DB.Where("id = ?", input.BookItemID).Take(&bookItem).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Book item tidak ditemukan", nil)
-		return
-	}
-
-	loanDate, _ := time.Parse("2006-01-02", input.LoanDate)
-	dueDate, _ := time.Parse("2006-01-02", input.DueDate)
-	var returnDate *time.Time
-	if input.ReturnDate != "" {
-		parsedDate, err := time.Parse("2006-01-02", input.ReturnDate)
-		if err == nil {
-			returnDate = &parsedDate
-		}
-	}
-
-	if !dueDate.After(loanDate) {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Validasi Gagal", []string{
-			"Tanggal kembali (due date) harus lebih besar dari tanggal peminjaman (loan date)",
-		})
-		return
-	}
-	if input.ReturnDate != "" && !returnDate.After(loanDate) {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Validasi Gagal", []string{
-			"Tanggal pengembalian (return date) harus lebih besar dari tanggal peminjaman (loan date)",
-		})
-		return
-	}
-
-	newLoan := models.Loan{
-		MemberID:   member.ID,
-		BookItemID: bookItem.ID,
-		LoanDate:   loanDate,
-		DueDate:    dueDate,
-		ReturnDate: returnDate,
-		Status:     input.Status,
-	}
-
-	config.DB.Model(&loan).Updates(newLoan)
-	config.DB.Preload("Member.User.Role").Preload("BookItem.Book.Category").Take(&newLoan, loan.ID)
-	utils.SendResponse(c, http.StatusOK, "Peminjaman berhasil diupdate!", resources.FormatLoan(newLoan))
+	utils.SendResponse(c, http.StatusOK, "Loan updated successfully!", resources.FormatLoan(*updatedLoan))
 }
 
-func ReturnLoan(c *gin.Context) {
-	var loan models.Loan
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&loan).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Peminjaman tidak ditemukan!", nil)
+func (ctrl *LoanController) ReturnLoan(c *gin.Context) {
+	id := c.Param("id")
+	loan, err := ctrl.service.ReturnLoan(c.Request.Context(), id)
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
 
-	if loan.Status != "ongoing" {
-		utils.SendErrorResponse(c, http.StatusUnprocessableEntity, "Peminjaman sudah dikembalikan atau melewati tanggal kembali", nil)
-		return
-	}
-
-	tx := config.DB.Begin()
-	now := time.Now()
-	loan.ReturnDate = &now
-	if now.After(loan.DueDate) {
-		loan.Status = "overdue"
-		newFine := models.Fine{
-			LoanID: loan.ID,
-			Amount: 5000 * float64(int(now.Sub(loan.DueDate).Hours()/24)),
-		}
-		tx.Create(&newFine)
-	} else {
-		loan.Status = "returned"
-	}
-
-	config.DB.Save(&loan)
-
-	var bookItem models.BookItem
-	config.DB.Where("id = ?", loan.BookItemID).Take(&bookItem)
-	bookItem.Status = "available"
-	config.DB.Save(&bookItem)
-
-	tx.Commit()
-	config.DB.Preload("Member.User.Role").Preload("BookItem.Book.Category").Take(&loan, loan.ID)
-	utils.SendResponse(c, http.StatusOK, "Peminjaman berhasil dikembalikan!", resources.FormatLoan(loan))
+	utils.SendResponse(c, http.StatusOK, "Loan returned successfully!", resources.FormatLoan(*loan))
 }
 
-func DeleteLoan(c *gin.Context) {
-	var loan models.Loan
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&loan).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Peminjaman tidak ditemukan!", nil)
+func (ctrl *LoanController) DeleteLoan(c *gin.Context) {
+	err := ctrl.service.DeleteLoan(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-
-	tx := config.DB.Begin()
-	var fine models.Fine
-	if err := tx.Where("loan_id = ?", loan.ID).Take(&fine).Error; err == nil {
-		tx.Delete(&fine)
-	}
-	tx.Delete(&loan)
-	tx.Commit()
-	utils.SendResponse(c, http.StatusOK, "Peminjaman berhasil dihapus!", nil)
+	utils.SendResponse(c, http.StatusOK, "Loan deleted successfully!", nil)
 }
 
-func PayFine(c *gin.Context) {
-	var fine models.Fine
-	if err := config.DB.Where("id = ? AND paid_at IS NULL", c.Param("id")).Take(&fine).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusNotFound, "Denda tidak ditemukan atau sudah dibayar!", nil)
+func (ctrl *LoanController) PayFine(c *gin.Context) {
+	id := c.Param("id")
+	fine, err := ctrl.service.PayFine(c.Request.Context(), id)
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
 
-	now := time.Now()
-	fine.PaidAt = &now
-
-	if err := config.DB.Save(&fine).Error; err != nil {
-		utils.SendErrorResponse(c, http.StatusInternalServerError, "Gagal memperbarui status denda", nil)
-		return
-	}
-
-	config.DB.Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Take(&fine, fine.ID)
-	utils.SendResponse(c, http.StatusOK, "Denda berhasil dibayar!", resources.FormatFine(fine))
+	utils.SendResponse(c, http.StatusOK, "Fine paid successfully!", resources.FormatFine(*fine))
 }
 
-func IndexFines(c *gin.Context) {
-	var fines []models.Fine
-	config.DB.Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Find(&fines)
-	utils.SendResponse(c, http.StatusOK, "Daftar denda berhasil diambil!", resources.FormatFines(fines))
+func (ctrl *LoanController) IndexFines(c *gin.Context) {
+	fines, err := ctrl.service.GetAllFines(c.Request.Context())
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Fines retrieved successfully!", resources.FormatFines(fines))
 }

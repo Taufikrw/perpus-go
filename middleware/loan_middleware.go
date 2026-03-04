@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"belajar-go/config"
 	"belajar-go/models"
 	"belajar-go/utils"
 	"net/http"
@@ -9,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RequireLoanAccess() gin.HandlerFunc {
+func (m *AppMiddleware) RequireLoanAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -19,7 +18,7 @@ func RequireLoanAccess() gin.HandlerFunc {
 		}
 
 		var user models.User
-		if err := config.DB.Preload("Role").Where("id = ?", userID).Take(&user).Error; err != nil {
+		if err := m.db.Preload("Role").Where("id = ?", userID).Take(&user).Error; err != nil {
 			utils.SendErrorResponse(c, 404, "Not Found", "User not found")
 			c.Abort()
 			return
@@ -28,7 +27,7 @@ func RequireLoanAccess() gin.HandlerFunc {
 		id := c.Param("id")
 
 		var loan models.Loan
-		if err := config.DB.Preload("Member.User.Role").Where("id = ?", id).Take(&loan).Error; err != nil {
+		if err := m.db.Preload("Member.User.Role").Where("id = ?", id).Take(&loan).Error; err != nil {
 			utils.SendErrorResponse(c, 404, "Not Found", "Loan not found")
 			c.Abort()
 			return

@@ -10,9 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
-
-func ConnectDatabase() {
+func ConnectDatabase() *gorm.DB {
 	host := os.Getenv("DB_HOST")
 	port := os.Getenv("DB_PORT")
 	user := os.Getenv("DB_USER")
@@ -38,5 +36,5 @@ func ConnectDatabase() {
 	database.AutoMigrate(&models.BookItem{})
 	database.AutoMigrate(&models.Member{})
 
-	DB = database
+	return database
 }

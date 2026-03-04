@@ -1,72 +1,87 @@
 package controllers
 
 import (
-	"belajar-go/config"
 	"belajar-go/dto"
-	"belajar-go/models"
 	"belajar-go/resources"
+	"belajar-go/services"
 	"belajar-go/utils"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
-func IndexCategory(c *gin.Context) {
-	var categories []models.BookCategory
-	config.DB.Find(&categories)
-	utils.SendResponse(c, 200, "Daftar kategori berhasil diambil!", resources.FormatCategories(categories))
+type CategoryController struct {
+	svc *services.CategoryService
 }
 
-func StoreCategory(c *gin.Context) {
+func NewCategoryController(svc *services.CategoryService) *CategoryController {
+	return &CategoryController{svc: svc}
+}
+
+func (ctrl *CategoryController) IndexCategory(c *gin.Context) {
+	categories, err := ctrl.svc.GetAllCategories(c.Request.Context())
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Categories retrieved successfully!", resources.FormatCategories(categories))
+}
+
+func (ctrl *CategoryController) ShowCategory(c *gin.Context) {
+	id := c.Param("id")
+
+	category, err := ctrl.svc.GetCategoryByID(c.Request.Context(), id)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Category retrieved successfully!", resources.FormatCategory(*category))
+}
+
+func (ctrl *CategoryController) StoreCategory(c *gin.Context) {
 	var input dto.CategoryDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, 422, "Input tidak valid", errMsg)
+		validationErr := utils.NewValidationError("Invalid Input", errMsg)
+
+		utils.HandleError(c, validationErr)
 		return
 	}
 
-	newCategory := models.BookCategory{
-		Name: input.Name,
+	newCategory, err := ctrl.svc.CreateCategory(c.Request.Context(), input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
 	}
-
-	config.DB.Create(&newCategory)
-	utils.SendResponse(c, 201, "Kategori berhasil dibuat!", resources.FormatCategory(newCategory))
+	utils.SendResponse(c, http.StatusCreated, "Category created successfully!", resources.FormatCategory(*newCategory))
 }
 
-func ShowCategory(c *gin.Context) {
-	var category models.BookCategory
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&category).Error; err != nil {
-		utils.SendErrorResponse(c, 404, "Kategori tidak ditemukan!", nil)
-		return
-	}
-	utils.SendResponse(c, 200, "Detail kategori berhasil diambil!", resources.FormatCategory(category))
-}
-
-func UpdateCategory(c *gin.Context) {
-	var category models.BookCategory
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&category).Error; err != nil {
-		utils.SendErrorResponse(c, 404, "Kategori tidak ditemukan!", nil)
-		return
-	}
+func (ctrl *CategoryController) UpdateCategory(c *gin.Context) {
+	id := c.Param("id")
 
 	var input dto.CategoryDTO
 	if err := c.ShouldBindJSON(&input); err != nil {
 		errMsg := utils.FormatError(err)
-		utils.SendErrorResponse(c, 422, "Input tidak valid", errMsg)
+		validationErr := utils.NewValidationError("Invalid Input", errMsg)
+		utils.HandleError(c, validationErr)
 		return
 	}
 
-	category.Name = input.Name
-	config.DB.Updates(&category)
-	utils.SendResponse(c, 200, "Kategori berhasil diupdate!", resources.FormatCategory(category))
+	updatedCategory, err := ctrl.svc.UpdateCategory(c.Request.Context(), id, input)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Category updated successfully!", resources.FormatCategory(*updatedCategory))
 }
 
-func DeleteCategory(c *gin.Context) {
-	var category models.BookCategory
-	if err := config.DB.Where("id = ?", c.Param("id")).Take(&category).Error; err != nil {
-		utils.SendErrorResponse(c, 404, "Kategori tidak ditemukan!", nil)
+func (ctrl *CategoryController) DeleteCategory(c *gin.Context) {
+	id := c.Param("id")
+
+	err := ctrl.svc.DeleteCategory(c.Request.Context(), id)
+	if err != nil {
+		utils.HandleError(c, err)
 		return
 	}
-
-	config.DB.Delete(&category)
-	utils.SendResponse(c, 200, "Kategori berhasil dihapus!", nil)
+	utils.SendResponse(c, http.StatusOK, "Category deleted successfully!", nil)
 }

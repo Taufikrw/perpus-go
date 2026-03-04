@@ -1,44 +1,50 @@
 package validators
 
 import (
-	"belajar-go/config"
 	"belajar-go/models"
 
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 )
 
-func ValidationUniqueEmail(fl validator.FieldLevel) bool {
+type AppValidator struct {
+	db *gorm.DB
+}
+
+func NewAppValidator(db *gorm.DB) *AppValidator {
+	return &AppValidator{db: db}
+}
+
+func (v *AppValidator) ValidationUniqueEmail(fl validator.FieldLevel) bool {
 	email := fl.Field().String()
 	var count int64
 
-	config.DB.Model(&models.User{}).Where("email = ?", email).Count(&count)
-
+	v.db.Model(&models.User{}).Where("email = ?", email).Count(&count)
 	return count == 0
 }
 
-func ValidationUniqueUsername(fl validator.FieldLevel) bool {
+func (v *AppValidator) ValidationUniqueUsername(fl validator.FieldLevel) bool {
 	username := fl.Field().String()
 	var count int64
 
-	config.DB.Model(&models.User{}).Where("username = ?", username).Count(&count)
-
+	v.db.Model(&models.User{}).Where("username = ?", username).Count(&count)
 	return count == 0
 }
 
-func ValidationUniqueMemberCode(fl validator.FieldLevel) bool {
+func (v *AppValidator) ValidationUniqueMemberCode(fl validator.FieldLevel) bool {
 	memberCode := fl.Field().String()
 	var count int64
 
-	config.DB.Model(&models.Member{}).Where("member_code = ?", memberCode).Count(&count)
+	v.db.Model(&models.Member{}).Where("member_code = ?", memberCode).Count(&count)
 
 	return count == 0
 }
 
-func ValidationUniqueInventoryCode(fl validator.FieldLevel) bool {
+func (v *AppValidator) ValidationUniqueInventoryCode(fl validator.FieldLevel) bool {
 	inventoryCode := fl.Field().String()
 	var count int64
 
-	config.DB.Model(&models.BookItem{}).Where("inventory_code = ?", inventoryCode).Count(&count)
+	v.db.Model(&models.BookItem{}).Where("inventory_code = ?", inventoryCode).Count(&count)
 
 	return count == 0
 }

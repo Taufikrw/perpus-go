@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,4 +19,12 @@ type Loan struct {
 	Member   Member   `gorm:"foreignKey:MemberID;references:ID"`
 	BookItem BookItem `gorm:"foreignKey:BookItemID;references:ID"`
 	Fine     *Fine    `gorm:"foreignKey:LoanID;references:ID"`
+}
+
+type LoanRepositoryInterface interface {
+	FindAll(c context.Context) ([]Loan, error)
+	FindByID(c context.Context, id string) (*Loan, error)
+	Create(c context.Context, loan *Loan) error
+	Update(c context.Context, loan *Loan) error
+	Delete(c context.Context, loan *Loan) error
 }
