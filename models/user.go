@@ -17,15 +17,10 @@ type User struct {
 	Member *Member `gorm:"foreignKey:UserID;references:ID"`
 }
 
-type AuthRepositoryInterface interface {
-	GetUserByEmail(c context.Context, email string) (*User, error)
-	GetRoleByName(c context.Context, name string) (*Role, error)
-	RegisterMemberTransaction(c context.Context, user *User, member *Member) (*Member, error)
-}
-
 type UserRepository interface {
 	FindAll(c context.Context) ([]User, error)
 	FindByID(c context.Context, id string) (*User, error)
+	GetUserByEmail(c context.Context, email string) (*User, error)
 	GetRoleByName(c context.Context, name string) (*Role, error)
 	Create(c context.Context, user *User) error
 	Update(c context.Context, user *User) error

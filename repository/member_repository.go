@@ -7,15 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type MemberRepository struct {
+type MemberRepositoryImpl struct {
 	db *gorm.DB
 }
 
 func NewMemberRepository(db *gorm.DB) models.MemberRepository {
-	return &MemberRepository{db: db}
+	return &MemberRepositoryImpl{db: db}
 }
 
-func (r *MemberRepository) FindAll(c context.Context) ([]models.Member, error) {
+func (r *MemberRepositoryImpl) FindAll(c context.Context) ([]models.Member, error) {
 	var members []models.Member
 	if err := r.db.WithContext(c).Preload("User.Role").Find(&members).Error; err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func (r *MemberRepository) FindAll(c context.Context) ([]models.Member, error) {
 	return members, nil
 }
 
-func (r *MemberRepository) FindByID(c context.Context, id string) (*models.Member, error) {
+func (r *MemberRepositoryImpl) FindByID(c context.Context, id string) (*models.Member, error) {
 	var member models.Member
 	if err := r.db.WithContext(c).Preload("User.Role").Where("id = ?", id).Take(&member).Error; err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (r *MemberRepository) FindByID(c context.Context, id string) (*models.Membe
 	return &member, nil
 }
 
-func (r *MemberRepository) FindByUserID(c context.Context, userID string) (*models.Member, error) {
+func (r *MemberRepositoryImpl) FindByUserID(c context.Context, userID string) (*models.Member, error) {
 	var member models.Member
 	if err := r.db.WithContext(c).Preload("User.Role").Where("user_id = ?", userID).Take(&member).Error; err != nil {
 		return nil, err
@@ -39,22 +39,22 @@ func (r *MemberRepository) FindByUserID(c context.Context, userID string) (*mode
 	return &member, nil
 }
 
-func (r *MemberRepository) Create(c context.Context, member *models.Member) error {
+func (r *MemberRepositoryImpl) Create(c context.Context, member *models.Member) error {
 	db := GetDB(c, r.db)
 	return db.Create(member).Error
 }
 
-func (r *MemberRepository) Update(ctx context.Context, member *models.Member) error {
+func (r *MemberRepositoryImpl) Update(ctx context.Context, member *models.Member) error {
 	db := GetDB(ctx, r.db)
 	return db.Model(&models.Member{}).Where("id = ?", member.ID).Updates(member).Error
 }
 
-func (r *MemberRepository) Delete(ctx context.Context, member *models.Member) error {
+func (r *MemberRepositoryImpl) Delete(ctx context.Context, member *models.Member) error {
 	db := GetDB(ctx, r.db)
 	return db.Delete(member).Error
 }
 
-func (r *MemberRepository) IsMemberCodeExists(c context.Context, memberCode string, excludeID string) (bool, error) {
+func (r *MemberRepositoryImpl) IsMemberCodeExists(c context.Context, memberCode string, excludeID string) (bool, error) {
 	var count int64
 	db := GetDB(c, r.db).Model(&models.Member{}).Where("member_code = ?", memberCode)
 	if excludeID != "" {

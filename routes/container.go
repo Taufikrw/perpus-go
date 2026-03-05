@@ -33,7 +33,7 @@ func InitDependency(db *gorm.DB) *AppControllers {
 	bookService := services.NewBookService(bookRepo, categoryRepo, bookItemRepo)
 	memberService := services.NewMemberService(tx, memberRepo, userRepo)
 	loanService := services.NewLoanService(tx, loanRepo, memberRepo, bookItemRepo, fineRepo)
-	authService := services.NewAuthService(repository.NewAuthRepository(db))
+	authService := services.NewAuthService(userRepo, memberRepo, tx)
 
 	appMiddlewre := middleware.NewAppMiddleware(db)
 

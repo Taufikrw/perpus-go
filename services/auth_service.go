@@ -8,15 +8,17 @@ import (
 )
 
 type AuthService struct {
-	repository models.AuthRepositoryInterface
+	tx         models.TransactionManager
+	userRepo   models.UserRepository
+	memberRepo models.MemberRepository
 }
 
-func NewAuthService(repository models.AuthRepositoryInterface) *AuthService {
-	return &AuthService{repository: repository}
+func NewAuthService(userRepo models.UserRepository, memberRepo models.MemberRepository, tx models.TransactionManager) *AuthService {
+	return &AuthService{userRepo: userRepo, memberRepo: memberRepo, tx: tx}
 }
 
 func (s *AuthService) Login(c context.Context, input dto.LoginInput) (string, error) {
-	user, err := s.repository.GetUserByEmail(c, input.Email)
+	user, err := s.userRepo.GetUserByEmail(c, input.Email)
 	if err != nil {
 		return "", utils.NewUnauthorizedError("Email and password do not match")
 	}
@@ -34,7 +36,7 @@ func (s *AuthService) Login(c context.Context, input dto.LoginInput) (string, er
 }
 
 func (s *AuthService) Register(c context.Context, input dto.CreateMemberDTO) (*models.Member, error) {
-	roleMember, err := s.repository.GetRoleByName(c, "member")
+	roleMember, err := s.userRepo.GetRoleByName(c, "member")
 	if err != nil {
 		return nil, utils.NewNotFoundError("Role member not found")
 	}
@@ -57,5 +59,21 @@ func (s *AuthService) Register(c context.Context, input dto.CreateMemberDTO) (*m
 		IsApproved:  false,
 	}
 
-	return s.repository.RegisterMemberTransaction(c, &user, &newMember)
+	err = s.tx.WithTransaction(c, func(txCtx context.Context) error {
+		if err := s.userRepo.Create(txCtx, &user); err != nil {
+			return err
+		}
+
+		newMember.UserID = user.ID
+		if err := s.memberRepo.Create(txCtx, &newMember); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return s.memberRepo.FindByID(c, newMember.ID.String())
 }
