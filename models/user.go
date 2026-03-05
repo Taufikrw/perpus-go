@@ -23,7 +23,7 @@ type AuthRepositoryInterface interface {
 	RegisterMemberTransaction(c context.Context, user *User, member *Member) (*Member, error)
 }
 
-type UserRepositoryInterface interface {
+type UserRepository interface {
 	FindAll(c context.Context) ([]User, error)
 	FindByID(c context.Context, id string) (*User, error)
 	GetRoleByName(c context.Context, name string) (*Role, error)

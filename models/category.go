@@ -11,7 +11,7 @@ type BookCategory struct {
 	Books []Book `gorm:"foreignKey:CategoryID;references:ID"`
 }
 
-type CategoryRepositoryInterface interface {
+type CategoryRepository interface {
 	FindAll(c context.Context) ([]BookCategory, error)
 	FindByID(c context.Context, id string) (*BookCategory, error)
 	Create(c context.Context, category *BookCategory) error

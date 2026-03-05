@@ -20,7 +20,7 @@ type Book struct {
 	BookItems []BookItem   `gorm:"foreignKey:BookID;references:ID"`
 }
 
-type BookRepositoryInterface interface {
+type BookRepository interface {
 	FindAll(c context.Context) ([]Book, error)
 	FindByID(c context.Context, id string) (*Book, error)
 	Create(c context.Context, book *Book) error

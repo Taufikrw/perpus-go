@@ -11,7 +11,7 @@ type loanRepository struct {
 	db *gorm.DB
 }
 
-func NewLoanRepository(db *gorm.DB) models.LoanRepositoryInterface {
+func NewLoanRepository(db *gorm.DB) models.LoanRepository {
 	return &loanRepository{db: db}
 }
 

@@ -18,7 +18,7 @@ type Member struct {
 	Loans []Loan `gorm:"foreignKey:MemberID;references:ID"`
 }
 
-type MemberRepositoryInterface interface {
+type MemberRepository interface {
 	FindAll(c context.Context) ([]Member, error)
 	FindByID(c context.Context, id string) (*Member, error)
 	FindByUserID(c context.Context, userID string) (*Member, error)

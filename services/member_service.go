@@ -9,11 +9,11 @@ import (
 
 type MemberService struct {
 	tx         models.TransactionManager
-	memberRepo models.MemberRepositoryInterface
-	userRepo   models.UserRepositoryInterface
+	memberRepo models.MemberRepository
+	userRepo   models.UserRepository
 }
 
-func NewMemberService(tx models.TransactionManager, memberRepo models.MemberRepositoryInterface, userRepo models.UserRepositoryInterface) *MemberService {
+func NewMemberService(tx models.TransactionManager, memberRepo models.MemberRepository, userRepo models.UserRepository) *MemberService {
 	return &MemberService{tx: tx, memberRepo: memberRepo, userRepo: userRepo}
 }
 

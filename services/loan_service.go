@@ -10,13 +10,13 @@ import (
 
 type LoanService struct {
 	tx           models.TransactionManager
-	loanRepo     models.LoanRepositoryInterface
-	memberRepo   models.MemberRepositoryInterface
-	bookItemRepo models.BookItemRepositoryInterface
-	fineRepo     models.FineRepositoryInterface
+	loanRepo     models.LoanRepository
+	memberRepo   models.MemberRepository
+	bookItemRepo models.BookItemRepository
+	fineRepo     models.FineRepository
 }
 
-func NewLoanService(tx models.TransactionManager, loanRepo models.LoanRepositoryInterface, memberRepo models.MemberRepositoryInterface, bookItemRepo models.BookItemRepositoryInterface, fineRepo models.FineRepositoryInterface) *LoanService {
+func NewLoanService(tx models.TransactionManager, loanRepo models.LoanRepository, memberRepo models.MemberRepository, bookItemRepo models.BookItemRepository, fineRepo models.FineRepository) *LoanService {
 	return &LoanService{
 		tx:           tx,
 		loanRepo:     loanRepo,
@@ -130,7 +130,7 @@ func (s *LoanService) ReturnLoan(c context.Context, id string) (*models.Loan, er
 		return nil, err
 	}
 	if loan.Status != "ongoing" {
-		return nil, utils.NewValidationError("Loan cannot be returned", []string{"Only ongoing loans can be returned"})
+		return nil, utils.NewValidationError("Loan has already been returned", []string{"Only ongoing loans can be returned"})
 	}
 
 	now := time.Now()

@@ -11,7 +11,7 @@ type fineRepository struct {
 	db *gorm.DB
 }
 
-func NewFineRepository(db *gorm.DB) models.FineRepositoryInterface {
+func NewFineRepository(db *gorm.DB) models.FineRepository {
 	return &fineRepository{db: db}
 }
 

@@ -11,7 +11,7 @@ type MemberRepository struct {
 	db *gorm.DB
 }
 
-func NewMemberRepository(db *gorm.DB) models.MemberRepositoryInterface {
+func NewMemberRepository(db *gorm.DB) models.MemberRepository {
 	return &MemberRepository{db: db}
 }
 

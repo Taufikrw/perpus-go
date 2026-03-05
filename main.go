@@ -29,7 +29,8 @@ func main() {
 	}
 
 	seeders.SeedDatabase(db)
-	r := routes.SetupRouter(db)
+	appCtrl := routes.InitDependency(db)
+	r := routes.SetupRouter(appCtrl)
 
 	r.Run(":8000")
 }

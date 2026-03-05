@@ -8,12 +8,12 @@ import (
 )
 
 type BookService struct {
-	bookRepo     models.BookRepositoryInterface
-	categoryRepo models.CategoryRepositoryInterface
-	bookItemRepo models.BookItemRepositoryInterface
+	bookRepo     models.BookRepository
+	categoryRepo models.CategoryRepository
+	bookItemRepo models.BookItemRepository
 }
 
-func NewBookService(bookRepo models.BookRepositoryInterface, categoryRepo models.CategoryRepositoryInterface, bookItemRepo models.BookItemRepositoryInterface) *BookService {
+func NewBookService(bookRepo models.BookRepository, categoryRepo models.CategoryRepository, bookItemRepo models.BookItemRepository) *BookService {
 	return &BookService{bookRepo: bookRepo, categoryRepo: categoryRepo, bookItemRepo: bookItemRepo}
 }
 

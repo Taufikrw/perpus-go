@@ -16,7 +16,7 @@ type Fine struct {
 	Loan Loan `gorm:"foreignKey:LoanID;references:ID"`
 }
 
-type FineRepositoryInterface interface {
+type FineRepository interface {
 	FindAll(c context.Context) ([]Fine, error)
 	FindByID(c context.Context, id string) (*Fine, error)
 	Create(c context.Context, fine *Fine) error

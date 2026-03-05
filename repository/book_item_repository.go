@@ -7,15 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type bookItemRepository struct {
+type bookItemRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func NewBookItemRepository(db *gorm.DB) models.BookItemRepositoryInterface {
-	return &bookItemRepository{db: db}
+func NewBookItemRepository(db *gorm.DB) models.BookItemRepository {
+	return &bookItemRepositoryImpl{db: db}
 }
 
-func (r *bookItemRepository) FindByBookID(c context.Context, bookID string) ([]models.BookItem, error) {
+func (r *bookItemRepositoryImpl) FindByBookID(c context.Context, bookID string) ([]models.BookItem, error) {
 	var bookItems []models.BookItem
 	if err := r.db.Preload("Book.Category").Where("book_id = ?", bookID).Find(&bookItems).Error; err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func (r *bookItemRepository) FindByBookID(c context.Context, bookID string) ([]m
 	return bookItems, nil
 }
 
-func (r *bookItemRepository) FindByID(c context.Context, id string) (*models.BookItem, error) {
+func (r *bookItemRepositoryImpl) FindByID(c context.Context, id string) (*models.BookItem, error) {
 	var bookItem models.BookItem
 	if err := r.db.Preload("Book.Category").Where("id = ?", id).Take(&bookItem).Error; err != nil {
 		return nil, err
@@ -31,17 +31,17 @@ func (r *bookItemRepository) FindByID(c context.Context, id string) (*models.Boo
 	return &bookItem, nil
 }
 
-func (r *bookItemRepository) Create(c context.Context, bookItem *models.BookItem) error {
+func (r *bookItemRepositoryImpl) Create(c context.Context, bookItem *models.BookItem) error {
 	db := GetDB(c, r.db)
 	return db.Create(bookItem).Error
 }
 
-func (r *bookItemRepository) Update(c context.Context, bookItem *models.BookItem) error {
+func (r *bookItemRepositoryImpl) Update(c context.Context, bookItem *models.BookItem) error {
 	db := GetDB(c, r.db)
 	return db.Updates(bookItem).Error
 }
 
-func (r *bookItemRepository) Delete(c context.Context, bookItem *models.BookItem) error {
+func (r *bookItemRepositoryImpl) Delete(c context.Context, bookItem *models.BookItem) error {
 	db := GetDB(c, r.db)
 	return db.Delete(bookItem).Error
 }

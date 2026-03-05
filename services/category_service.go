@@ -8,10 +8,10 @@ import (
 )
 
 type CategoryService struct {
-	repository models.CategoryRepositoryInterface
+	repository models.CategoryRepository
 }
 
-func NewCategoryService(repository models.CategoryRepositoryInterface) *CategoryService {
+func NewCategoryService(repository models.CategoryRepository) *CategoryService {
 	return &CategoryService{repository: repository}
 }
 
