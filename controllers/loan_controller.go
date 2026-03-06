@@ -100,12 +100,3 @@ func (ctrl *LoanController) PayFine(c *gin.Context) {
 
 	utils.SendResponse(c, http.StatusOK, "Fine paid successfully!", resources.FormatFine(*fine))
 }
-
-func (ctrl *LoanController) IndexFines(c *gin.Context) {
-	fines, err := ctrl.service.GetAllFines(c.Request.Context())
-	if err != nil {
-		utils.HandleError(c, err)
-		return
-	}
-	utils.SendResponse(c, http.StatusOK, "Fines retrieved successfully!", resources.FormatFines(fines))
-}

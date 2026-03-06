@@ -15,6 +15,7 @@ type AppControllers struct {
 	Auth       *controllers.AuthController
 	Member     *controllers.MemberController
 	Loan       *controllers.LoanController
+	Fine       *controllers.FineController
 	Middleware *middleware.AppMiddleware
 }
 
@@ -34,6 +35,7 @@ func InitDependency(db *gorm.DB) *AppControllers {
 	memberService := services.NewMemberService(tx, memberRepo, userRepo)
 	loanService := services.NewLoanService(tx, loanRepo, memberRepo, bookItemRepo, fineRepo)
 	authService := services.NewAuthService(userRepo, memberRepo, tx)
+	fineService := services.NewFineService(fineRepo, loanRepo)
 
 	appMiddlewre := middleware.NewAppMiddleware(db)
 
@@ -43,6 +45,7 @@ func InitDependency(db *gorm.DB) *AppControllers {
 		Auth:       controllers.NewAuthController(authService),
 		Member:     controllers.NewMemberController(memberService),
 		Loan:       controllers.NewLoanController(loanService),
+		Fine:       controllers.NewFineController(fineService),
 		Middleware: appMiddlewre,
 	}
 }

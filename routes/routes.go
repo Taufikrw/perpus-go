@@ -51,9 +51,14 @@ func SetupRouter(ctrl *AppControllers) *gin.Engine {
 			adminOrLibrarian.PUT("/loans/:id", ctrl.Loan.UpdateLoan)
 			adminOrLibrarian.PUT("/loans/:id/return", ctrl.Loan.ReturnLoan)
 			adminOrLibrarian.DELETE("/loans/:id", ctrl.Loan.DeleteLoan)
-			adminOrLibrarian.GET("/fines", ctrl.Loan.IndexFines)
 			adminOrLibrarian.PUT("/loans/:id/pay-fine", ctrl.Loan.PayFine)
 			adminOrLibrarian.PUT("/approve/:id", ctrl.Member.ApproveMember)
+
+			adminOrLibrarian.GET("/fines", ctrl.Fine.IndexFines)
+			adminOrLibrarian.GET("/fines/:id", ctrl.Fine.ShowFine)
+			adminOrLibrarian.POST("/fines", ctrl.Fine.StoreFine)
+			adminOrLibrarian.PUT("/fines/:id", ctrl.Fine.UpdateFine)
+			adminOrLibrarian.DELETE("/fines/:id", ctrl.Fine.DeleteFine)
 		}
 
 		member := api.Group("/")
