@@ -6,7 +6,7 @@ import (
 
 type Book struct {
 	BaseModel
-	CategoryID uuid.UUID
+	CategoryID *uuid.UUID
 	Title      string
 	Author     string
 	Publisher  string

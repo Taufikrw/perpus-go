@@ -45,7 +45,7 @@ func (s *BookService) CreateBook(c context.Context, input dto.CreateBookDTO) (*m
 		Publisher:  input.Publisher,
 		Isbn:       input.Isbn,
 		Synopsis:   input.Synopsis,
-		CategoryID: category.ID,
+		CategoryID: &category.ID,
 	}
 
 	err = s.bookRepo.Create(c, &newBook)
@@ -72,7 +72,7 @@ func (s *BookService) UpdateBook(c context.Context, id string, input dto.CreateB
 	book.Publisher = input.Publisher
 	book.Isbn = input.Isbn
 	book.Synopsis = input.Synopsis
-	book.CategoryID = category.ID
+	book.CategoryID = &category.ID
 
 	err = s.bookRepo.Update(c, book)
 	if err != nil {

@@ -1,16 +1,20 @@
 package resources
 
-import "belajar-go/models"
+import (
+	"belajar-go/models"
+
+	"github.com/google/uuid"
+)
 
 type BookResource struct {
-	ID        string           `json:"id"`
-	Title     string           `json:"title"`
-	Author    string           `json:"author"`
-	Year      int              `json:"year"`
-	Publisher string           `json:"publisher"`
-	Isbn      string           `json:"isbn"`
-	Synopsis  string           `json:"synopsis"`
-	Category  CategoryResource `json:"category"`
+	ID        string            `json:"id"`
+	Title     string            `json:"title"`
+	Author    string            `json:"author"`
+	Year      int               `json:"year"`
+	Publisher string            `json:"publisher"`
+	Isbn      string            `json:"isbn"`
+	Synopsis  string            `json:"synopsis"`
+	Category  *CategoryResource `json:"category"`
 }
 
 type BookItemResource struct {
@@ -22,6 +26,12 @@ type BookItemResource struct {
 }
 
 func FormatBook(book models.Book) BookResource {
+	var category *CategoryResource = nil
+	if book.CategoryID != nil && book.Category.ID != uuid.Nil {
+		formattedCat := FormatCategory(book.Category)
+		category = &formattedCat
+	}
+
 	return BookResource{
 		ID:        book.ID.String(),
 		Title:     book.Title,
@@ -30,7 +40,7 @@ func FormatBook(book models.Book) BookResource {
 		Publisher: book.Publisher,
 		Isbn:      book.Isbn,
 		Synopsis:  book.Synopsis,
-		Category:  FormatCategory(book.Category),
+		Category:  category,
 	}
 }
 
