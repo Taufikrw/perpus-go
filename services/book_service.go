@@ -3,26 +3,27 @@ package services
 import (
 	"belajar-go/dto"
 	"belajar-go/models"
+	"belajar-go/repository"
 	"belajar-go/utils"
 	"context"
 )
 
 type BookService struct {
-	bookRepo     models.BookRepository
-	categoryRepo models.CategoryRepository
-	bookItemRepo models.BookItemRepository
+	bookRepo     repository.BookRepository
+	categoryRepo repository.CategoryRepository
+	bookItemRepo repository.BookItemRepository
 }
 
-func NewBookService(bookRepo models.BookRepository, categoryRepo models.CategoryRepository, bookItemRepo models.BookItemRepository) *BookService {
+func NewBookService(bookRepo repository.BookRepository, categoryRepo repository.CategoryRepository, bookItemRepo repository.BookItemRepository) *BookService {
 	return &BookService{bookRepo: bookRepo, categoryRepo: categoryRepo, bookItemRepo: bookItemRepo}
 }
 
 func (s *BookService) GetAllBooks(c context.Context) ([]models.Book, error) {
-	return s.bookRepo.FindAll(c)
+	return s.bookRepo.GetAll(c, "Category")
 }
 
 func (s *BookService) GetBookByID(c context.Context, id string) (*models.Book, error) {
-	book, err := s.bookRepo.FindByID(c, id)
+	book, err := s.bookRepo.GetByID(c, id, "Category")
 	if book == nil {
 		return nil, utils.NewNotFoundError("Book not found")
 	} else if err != nil {
@@ -32,7 +33,7 @@ func (s *BookService) GetBookByID(c context.Context, id string) (*models.Book, e
 }
 
 func (s *BookService) CreateBook(c context.Context, input dto.CreateBookDTO) (*models.Book, error) {
-	category, err := s.categoryRepo.FindByID(c, input.CategoryID)
+	category, err := s.categoryRepo.GetByID(c, input.CategoryID)
 	if err != nil {
 		return nil, utils.NewNotFoundError("Category not found")
 	}
@@ -60,7 +61,7 @@ func (s *BookService) UpdateBook(c context.Context, id string, input dto.CreateB
 		return nil, err
 	}
 
-	category, err := s.categoryRepo.FindByID(c, input.CategoryID)
+	category, err := s.categoryRepo.GetByID(c, input.CategoryID)
 	if err != nil {
 		return nil, utils.NewNotFoundError("Category not found")
 	}
@@ -88,6 +89,19 @@ func (s *BookService) DeleteBook(c context.Context, id string) error {
 	return s.bookRepo.Delete(c, book)
 }
 
+func (s *BookService) RestoreBook(c context.Context, id string) (*models.Book, error) {
+	book, _ := s.GetBookByID(c, id)
+	if book != nil {
+		return nil, utils.NewBadRequestError("Book is not deleted")
+	}
+	err := s.bookRepo.Restore(c, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetBookByID(c, id)
+}
+
 func (s *BookService) GetBookItemsByBookID(c context.Context, bookID string) ([]models.BookItem, error) {
 	bookItems, err := s.bookItemRepo.FindByBookID(c, bookID)
 	if err != nil {
@@ -97,7 +111,7 @@ func (s *BookService) GetBookItemsByBookID(c context.Context, bookID string) ([]
 }
 
 func (s *BookService) GetBookItemByID(c context.Context, id string) (*models.BookItem, error) {
-	bookItem, err := s.bookItemRepo.FindByID(c, id)
+	bookItem, err := s.bookItemRepo.GetByID(c, id, "Book.Category")
 	if bookItem == nil {
 		return nil, utils.NewNotFoundError("Book item not found")
 	} else if err != nil {
@@ -113,7 +127,7 @@ func (s *BookService) CreateBookItem(c context.Context, bookID string, input dto
 	}
 
 	newBookItem := models.BookItem{
-		BookID:        book.ID,
+		BookID:        &book.ID,
 		InventoryCode: input.InventoryCode,
 		Condition:     input.Condition,
 		Status:        "available",
@@ -123,7 +137,7 @@ func (s *BookService) CreateBookItem(c context.Context, bookID string, input dto
 	if err != nil {
 		return nil, err
 	}
-	return s.bookItemRepo.FindByID(c, newBookItem.ID.String())
+	return s.bookItemRepo.GetByID(c, newBookItem.ID.String(), "Book.Category")
 }
 
 func (s *BookService) UpdateBookItem(c context.Context, id string, input dto.UpdateBookItemDTO) (*models.BookItem, error) {
@@ -132,12 +146,20 @@ func (s *BookService) UpdateBookItem(c context.Context, id string, input dto.Upd
 		return nil, err
 	}
 
+	exist, err := s.bookItemRepo.IsInventoryCodeExists(c, input.InventoryCode, id)
+	if err != nil {
+		return nil, err
+	}
+	if exist {
+		return nil, utils.NewValidationError("Validation failed", []string{"Inventory code already exists"})
+	}
+
 	book, err := s.GetBookByID(c, input.BookID)
 	if err != nil {
 		return nil, err
 	}
 
-	bookItem.BookID = book.ID
+	bookItem.BookID = &book.ID
 	bookItem.InventoryCode = input.InventoryCode
 	bookItem.Condition = input.Condition
 
@@ -145,7 +167,7 @@ func (s *BookService) UpdateBookItem(c context.Context, id string, input dto.Upd
 	if err != nil {
 		return nil, err
 	}
-	return s.bookItemRepo.FindByID(c, bookItem.ID.String())
+	return s.bookItemRepo.GetByID(c, bookItem.ID.String(), "Book.Category")
 }
 
 func (s *BookService) DeleteBookItem(c context.Context, id string) error {
@@ -154,4 +176,17 @@ func (s *BookService) DeleteBookItem(c context.Context, id string) error {
 		return err
 	}
 	return s.bookItemRepo.Delete(c, bookItem)
+}
+
+func (s *BookService) RestoreBookItem(c context.Context, id string) (*models.BookItem, error) {
+	item, _ := s.bookItemRepo.GetByID(c, id)
+	if item != nil {
+		return nil, utils.NewBadRequestError("Book item is not deleted")
+	}
+	err := s.bookItemRepo.Restore(c, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.bookItemRepo.GetByID(c, id, "Book.Category")
 }

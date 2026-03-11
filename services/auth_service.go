@@ -3,17 +3,18 @@ package services
 import (
 	"belajar-go/dto"
 	"belajar-go/models"
+	"belajar-go/repository"
 	"belajar-go/utils"
 	"context"
 )
 
 type AuthService struct {
 	tx         models.TransactionManager
-	userRepo   models.UserRepository
-	memberRepo models.MemberRepository
+	userRepo   repository.UserRepository
+	memberRepo repository.MemberRepository
 }
 
-func NewAuthService(userRepo models.UserRepository, memberRepo models.MemberRepository, tx models.TransactionManager) *AuthService {
+func NewAuthService(userRepo repository.UserRepository, memberRepo repository.MemberRepository, tx models.TransactionManager) *AuthService {
 	return &AuthService{userRepo: userRepo, memberRepo: memberRepo, tx: tx}
 }
 
@@ -75,5 +76,5 @@ func (s *AuthService) Register(c context.Context, input dto.CreateMemberDTO) (*m
 		return nil, err
 	}
 
-	return s.memberRepo.FindByID(c, newMember.ID.String())
+	return s.memberRepo.GetByID(c, newMember.ID.String(), "User.Role")
 }

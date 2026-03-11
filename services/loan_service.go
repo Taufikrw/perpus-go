@@ -3,6 +3,7 @@ package services
 import (
 	"belajar-go/dto"
 	"belajar-go/models"
+	"belajar-go/repository"
 	"belajar-go/utils"
 	"context"
 	"time"
@@ -10,13 +11,13 @@ import (
 
 type LoanService struct {
 	tx           models.TransactionManager
-	loanRepo     models.LoanRepository
-	memberRepo   models.MemberRepository
-	bookItemRepo models.BookItemRepository
-	fineRepo     models.FineRepository
+	loanRepo     repository.LoanRepository
+	memberRepo   repository.MemberRepository
+	bookItemRepo repository.BookItemRepository
+	fineRepo     repository.FineRepository
 }
 
-func NewLoanService(tx models.TransactionManager, loanRepo models.LoanRepository, memberRepo models.MemberRepository, bookItemRepo models.BookItemRepository, fineRepo models.FineRepository) *LoanService {
+func NewLoanService(tx models.TransactionManager, loanRepo repository.LoanRepository, memberRepo repository.MemberRepository, bookItemRepo repository.BookItemRepository, fineRepo repository.FineRepository) *LoanService {
 	return &LoanService{
 		tx:           tx,
 		loanRepo:     loanRepo,
@@ -27,11 +28,11 @@ func NewLoanService(tx models.TransactionManager, loanRepo models.LoanRepository
 }
 
 func (s *LoanService) GetAllLoans(c context.Context) ([]models.Loan, error) {
-	return s.loanRepo.FindAll(c)
+	return s.loanRepo.GetAll(c, "Member.User.Role", "BookItem.Book.Category", "Fine")
 }
 
 func (s *LoanService) GetLoanByID(c context.Context, id string) (*models.Loan, error) {
-	loan, err := s.loanRepo.FindByID(c, id)
+	loan, err := s.loanRepo.GetByID(c, id, "Member.User.Role", "BookItem.Book.Category", "Fine")
 	if loan == nil {
 		return nil, utils.NewNotFoundError("Loan not found")
 	} else if err != nil {
@@ -45,7 +46,7 @@ func (s *LoanService) CreateLoan(c context.Context, input dto.CreateLoanDTO, use
 	if err != nil {
 		return nil, utils.NewNotFoundError("Member not found")
 	}
-	bookItem, err := s.bookItemRepo.FindByID(c, input.BookItemID)
+	bookItem, err := s.bookItemRepo.GetByID(c, input.BookItemID, "Book.Category")
 	if err != nil {
 		return nil, utils.NewNotFoundError("Book item not found")
 	}
@@ -85,11 +86,11 @@ func (s *LoanService) UpdateLoan(c context.Context, id string, input dto.UpdateL
 		return nil, err
 	}
 
-	member, err := s.memberRepo.FindByID(c, input.MemberID)
+	member, err := s.memberRepo.GetByID(c, input.MemberID)
 	if err != nil {
 		return nil, utils.NewNotFoundError("Member not found")
 	}
-	bookItem, err := s.bookItemRepo.FindByID(c, input.BookItemID)
+	bookItem, err := s.bookItemRepo.GetByID(c, input.BookItemID, "Book.Category")
 	if err != nil {
 		return nil, utils.NewNotFoundError("Book item not found")
 	}
@@ -121,7 +122,20 @@ func (s *LoanService) DeleteLoan(c context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	return s.loanRepo.Delete(c, loan)
+
+	return s.tx.WithTransaction(c, func(txCtx context.Context) error {
+		fine, err := s.fineRepo.FindByLoanID(txCtx, loan.ID.String())
+		if err == nil && fine != nil {
+			if err := s.fineRepo.Delete(txCtx, fine); err != nil {
+				return err
+			}
+		}
+
+		if err := s.loanRepo.Delete(txCtx, loan); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (s *LoanService) ReturnLoan(c context.Context, id string) (*models.Loan, error) {
@@ -154,7 +168,7 @@ func (s *LoanService) ReturnLoan(c context.Context, id string) (*models.Loan, er
 				return err
 			}
 		}
-		bookItem, err := s.bookItemRepo.FindByID(txCtx, loan.BookItemID.String())
+		bookItem, err := s.bookItemRepo.GetByID(txCtx, loan.BookItemID.String(), "Book.Category")
 		if err != nil {
 			return err
 		}
@@ -172,7 +186,7 @@ func (s *LoanService) ReturnLoan(c context.Context, id string) (*models.Loan, er
 }
 
 func (s *LoanService) PayFine(c context.Context, id string) (*models.Fine, error) {
-	fine, err := s.fineRepo.FindByID(c, id)
+	fine, err := s.fineRepo.GetByID(c, id, "Loan.Member.User.Role", "Loan.BookItem.Book.Category")
 	if err != nil {
 		return nil, utils.NewNotFoundError("Fine not found")
 	}
@@ -191,5 +205,5 @@ func (s *LoanService) PayFine(c context.Context, id string) (*models.Fine, error
 }
 
 func (s *LoanService) GetAllFines(c context.Context) ([]models.Fine, error) {
-	return s.fineRepo.FindAll(c)
+	return s.fineRepo.GetAll(c, "Loan.Member.User.Role", "Loan.BookItem.Book.Category")
 }

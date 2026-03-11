@@ -3,26 +3,27 @@ package services
 import (
 	"belajar-go/dto"
 	"belajar-go/models"
+	"belajar-go/repository"
 	"belajar-go/utils"
 	"context"
 )
 
 type MemberService struct {
 	tx         models.TransactionManager
-	memberRepo models.MemberRepository
-	userRepo   models.UserRepository
+	memberRepo repository.MemberRepository
+	userRepo   repository.UserRepository
 }
 
-func NewMemberService(tx models.TransactionManager, memberRepo models.MemberRepository, userRepo models.UserRepository) *MemberService {
+func NewMemberService(tx models.TransactionManager, memberRepo repository.MemberRepository, userRepo repository.UserRepository) *MemberService {
 	return &MemberService{tx: tx, memberRepo: memberRepo, userRepo: userRepo}
 }
 
 func (s *MemberService) GetAllMembers(c context.Context) ([]models.Member, error) {
-	return s.memberRepo.FindAll(c)
+	return s.memberRepo.GetAll(c, "User.Role")
 }
 
 func (s *MemberService) GetMemberByID(c context.Context, id string) (*models.Member, error) {
-	member, err := s.memberRepo.FindByID(c, id)
+	member, err := s.memberRepo.GetByID(c, id, "User.Role")
 	if member == nil {
 		return nil, utils.NewNotFoundError("Member not found")
 	} else if err != nil {
@@ -152,6 +153,30 @@ func (s *MemberService) DeleteMember(c context.Context, id string) error {
 		}
 		return nil
 	})
+}
+
+func (s *MemberService) RestoreMember(c context.Context, id string) (*models.Member, error) {
+	member, err := s.memberRepo.GetTrashedDataByID(c, id, "User.Role")
+	if member == nil {
+		return nil, utils.NewBadRequestError("Member is not deleted")
+	} else if err != nil {
+		return nil, err
+	}
+
+	err = s.tx.WithTransaction(c, func(txCtx context.Context) error {
+		if err := s.memberRepo.Restore(txCtx, id); err != nil {
+			return err
+		}
+		if err := s.userRepo.Restore(txCtx, member.UserID.String()); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetMemberByID(c, id)
 }
 
 func (s *MemberService) ApproveMember(c context.Context, id string) (*models.Member, error) {

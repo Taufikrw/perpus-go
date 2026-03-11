@@ -85,3 +85,14 @@ func (ctrl *CategoryController) DeleteCategory(c *gin.Context) {
 	}
 	utils.SendResponse(c, http.StatusOK, "Category deleted successfully!", nil)
 }
+
+func (ctrl *CategoryController) RestoreCategory(c *gin.Context) {
+	id := c.Param("id")
+
+	restoredCategory, err := ctrl.svc.RestoreCategory(c.Request.Context(), id)
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Category restored successfully!", resources.FormatCategory(*restoredCategory))
+}

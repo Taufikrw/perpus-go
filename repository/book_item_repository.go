@@ -7,12 +7,22 @@ import (
 	"gorm.io/gorm"
 )
 
+type BookItemRepository interface {
+	BaseRepository[models.BookItem]
+	FindByBookID(c context.Context, bookID string) ([]models.BookItem, error)
+	IsInventoryCodeExists(c context.Context, inventoryCode string, excludeID string) (bool, error)
+}
+
 type bookItemRepositoryImpl struct {
+	BaseRepository[models.BookItem]
 	db *gorm.DB
 }
 
-func NewBookItemRepository(db *gorm.DB) models.BookItemRepository {
-	return &bookItemRepositoryImpl{db: db}
+func NewBookItemRepository(db *gorm.DB) BookItemRepository {
+	return &bookItemRepositoryImpl{
+		BaseRepository: NewBaseRepository[models.BookItem](db),
+		db:             db,
+	}
 }
 
 func (r *bookItemRepositoryImpl) FindByBookID(c context.Context, bookID string) ([]models.BookItem, error) {
@@ -23,25 +33,14 @@ func (r *bookItemRepositoryImpl) FindByBookID(c context.Context, bookID string) 
 	return bookItems, nil
 }
 
-func (r *bookItemRepositoryImpl) FindByID(c context.Context, id string) (*models.BookItem, error) {
-	var bookItem models.BookItem
-	if err := r.db.Preload("Book.Category").Where("id = ?", id).Take(&bookItem).Error; err != nil {
-		return nil, err
+func (r *bookItemRepositoryImpl) IsInventoryCodeExists(c context.Context, inventoryCode string, excludeID string) (bool, error) {
+	var count int64
+	db := GetDB(c, r.db).Model(&models.BookItem{}).Where("inventory_code = ?", inventoryCode)
+	if excludeID != "" {
+		db = db.Where("id != ?", excludeID)
 	}
-	return &bookItem, nil
-}
-
-func (r *bookItemRepositoryImpl) Create(c context.Context, bookItem *models.BookItem) error {
-	db := GetDB(c, r.db)
-	return db.Create(bookItem).Error
-}
-
-func (r *bookItemRepositoryImpl) Update(c context.Context, bookItem *models.BookItem) error {
-	db := GetDB(c, r.db)
-	return db.Updates(bookItem).Error
-}
-
-func (r *bookItemRepositoryImpl) Delete(c context.Context, bookItem *models.BookItem) error {
-	db := GetDB(c, r.db)
-	return db.Delete(bookItem).Error
+	if err := db.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

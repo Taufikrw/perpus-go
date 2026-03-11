@@ -7,41 +7,27 @@ import (
 	"gorm.io/gorm"
 )
 
+type FineRepository interface {
+	BaseRepository[models.Fine]
+	FindByLoanID(c context.Context, loanID string) (*models.Fine, error)
+}
+
 type fineRepositoryImpl struct {
+	BaseRepository[models.Fine]
 	db *gorm.DB
 }
 
-func NewFineRepository(db *gorm.DB) models.FineRepository {
-	return &fineRepositoryImpl{db: db}
-}
-
-func (r *fineRepositoryImpl) FindAll(c context.Context) ([]models.Fine, error) {
-	var fines []models.Fine
-	if err := r.db.WithContext(c).Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Find(&fines).Error; err != nil {
-		return nil, err
+func NewFineRepository(db *gorm.DB) FineRepository {
+	return &fineRepositoryImpl{
+		BaseRepository: NewBaseRepository[models.Fine](db),
+		db:             db,
 	}
-	return fines, nil
 }
 
-func (r *fineRepositoryImpl) FindByID(c context.Context, id string) (*models.Fine, error) {
+func (r *fineRepositoryImpl) FindByLoanID(c context.Context, loanID string) (*models.Fine, error) {
 	var fine models.Fine
-	if err := r.db.WithContext(c).Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Where("id = ?", id).Take(&fine).Error; err != nil {
+	if err := r.db.WithContext(c).Preload("Loan.Member.User.Role").Preload("Loan.BookItem.Book.Category").Where("loan_id = ?", loanID).Take(&fine).Error; err != nil {
 		return nil, err
 	}
 	return &fine, nil
-}
-
-func (r *fineRepositoryImpl) Create(c context.Context, fine *models.Fine) error {
-	db := GetDB(c, r.db)
-	return db.Create(fine).Error
-}
-
-func (r *fineRepositoryImpl) Update(c context.Context, fine *models.Fine) error {
-	db := GetDB(c, r.db)
-	return db.Updates(fine).Error
-}
-
-func (r *fineRepositoryImpl) Delete(c context.Context, fine *models.Fine) error {
-	db := GetDB(c, r.db)
-	return db.Delete(fine).Error
 }

@@ -79,6 +79,15 @@ func (ctrl *BookController) DeleteBook(c *gin.Context) {
 	utils.SendResponse(c, http.StatusOK, "Book deleted successfully!", nil)
 }
 
+func (ctrl *BookController) RestoreBook(c *gin.Context) {
+	book, err := ctrl.svc.RestoreBook(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Book restored successfully!", resources.FormatBook(*book))
+}
+
 func (ctrl *BookController) InsertBookItem(c *gin.Context) {
 	var input dto.CreateBookItemDTO
 
@@ -125,6 +134,15 @@ func (ctrl *BookController) RemoveBookItem(c *gin.Context) {
 		return
 	}
 	utils.SendResponse(c, http.StatusOK, "Book item deleted successfully!", nil)
+}
+
+func (ctrl *BookController) RestoreBookItem(c *gin.Context) {
+	item, err := ctrl.svc.RestoreBookItem(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+	utils.SendResponse(c, http.StatusOK, "Book item restored successfully!", resources.FormatBookItem(*item))
 }
 
 func (ctrl *BookController) ShowBookItems(c *gin.Context) {

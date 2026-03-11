@@ -84,6 +84,16 @@ func (ctrl *MemberController) DeleteMember(c *gin.Context) {
 	utils.SendResponse(c, http.StatusOK, "Member deleted successfully!", nil)
 }
 
+func (ctrl *MemberController) RestoreMember(c *gin.Context) {
+	member, err := ctrl.svc.RestoreMember(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		utils.HandleError(c, err)
+		return
+	}
+
+	utils.SendResponse(c, http.StatusOK, "Member restored successfully!", resources.FormatMember(*member))
+}
+
 func (ctrl *MemberController) ApproveMember(c *gin.Context) {
 	member, err := ctrl.svc.ApproveMember(c.Request.Context(), c.Param("id"))
 	if err != nil {

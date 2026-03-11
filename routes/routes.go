@@ -29,12 +29,14 @@ func SetupRouter(ctrl *AppControllers) *gin.Engine {
 			admin.GET("/categories/:id", ctrl.Category.ShowCategory)
 			admin.PUT("/categories/:id", ctrl.Category.UpdateCategory)
 			admin.DELETE("/categories/:id", ctrl.Category.DeleteCategory)
+			admin.PUT("/categories/:id/restore", ctrl.Category.RestoreCategory)
 
 			admin.GET("/members", ctrl.Member.IndexMember)
 			admin.POST("/members", ctrl.Member.StoreMember)
 			admin.GET("/members/:id", ctrl.Member.ShowMember)
 			admin.PUT("/members/:id", ctrl.Member.UpdateMember)
 			admin.DELETE("/members/:id", ctrl.Member.DeleteMember)
+			admin.PUT("/members/:id/restore", ctrl.Member.RestoreMember)
 		}
 
 		adminOrLibrarian := api.Group("/")
@@ -43,9 +45,11 @@ func SetupRouter(ctrl *AppControllers) *gin.Engine {
 			adminOrLibrarian.POST("/books", ctrl.Book.StoreBook)
 			adminOrLibrarian.PUT("/books/:id", ctrl.Book.UpdateBook)
 			adminOrLibrarian.DELETE("/books/:id", ctrl.Book.DeleteBook)
+			adminOrLibrarian.PUT("/books/:id/restore", ctrl.Book.RestoreBook)
 			adminOrLibrarian.POST("/books/item", ctrl.Book.InsertBookItem)
 			adminOrLibrarian.PUT("/books/item/:id", ctrl.Book.UpdateBookItem)
 			adminOrLibrarian.DELETE("/books/item/:id", ctrl.Book.RemoveBookItem)
+			adminOrLibrarian.PUT("/books/item/:id/restore", ctrl.Book.RestoreBookItem)
 
 			adminOrLibrarian.GET("/loans", ctrl.Loan.IndexLoans)
 			adminOrLibrarian.PUT("/loans/:id", ctrl.Loan.UpdateLoan)
